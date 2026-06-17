@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#00855B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>FASSTO 스캔앱</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --g:#00855B;--gd:#005E3E;--slate:#333D4B;--gray:#6B7684;
+    --bd:#E5E8EB;--tint:#F4FAF7;--tint2:#D9F0E5;
+    --red:#C0392B;--redbg:#FFF5F5;
+    --yellow:#FFF8E1;--yellowbd:#E6C36A;
+    --pink:#FFE0EA;--pinkbd:#FF7FA4;--pinktxt:#A80036;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;font-family:-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:#F7F9F8;color:var(--slate);font-size:16px;}
+  header{background:var(--g);color:#fff;padding:12px 14px;position:sticky;top:0;z-index:10;}
+  .brand{font-weight:800;font-size:16px;display:flex;justify-content:space-between;align-items:center;}
+  .brand select{padding:6px 8px;border-radius:8px;border:none;font-size:13px;font-weight:700;background:#fff;color:var(--slate);}
+  .wd{margin-top:6px;font-size:12px;color:#D6ECE2;}
+  .mycenter{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 10px;font-size:13px;}
+  .mycenter b{font-size:14px;color:#fff;}
+  .miniCenter{display:flex;align-items:center;gap:6px;color:#E4F5EE;font-size:11px;white-space:nowrap;}
+  .miniCenter select{font-size:11.5px;padding:5px 6px;max-width:116px;border-radius:8px;border:none;background:#fff;color:var(--slate);}
+  /* 구글 시트 연결 상태 배너 */
+  .gsBanner{padding:7px 14px;font-size:12px;font-weight:700;text-align:center;border-bottom:1px solid var(--bd);}
+  .gsBanner.ok{background:#E8F5E9;color:#1B5E20;}
+  .gsBanner.fail{background:var(--redbg);color:var(--red);}
+  .gsBanner.loading{background:var(--yellow);color:#7A5B00;}
+  .proto{background:var(--yellow);color:#7a5b00;font-size:11px;padding:5px 14px;text-align:center;border-bottom:1px solid var(--yellowbd);}
+  main{padding:14px;max-width:560px;margin:0 auto;padding-bottom:40px;}
+  h2{font-size:20px;margin:4px 0 14px;color:var(--slate);}
+  .grouplabel{font-size:12px;font-weight:800;color:var(--g);margin:16px 0 8px;}
+  .card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px;}
+  .navrow{display:flex;align-items:center;background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;}
+  .navrow.funcCard{padding:20px 16px;min-height:100px;border-radius:16px;box-shadow:0 4px 14px rgba(0,94,62,.08);}
+  .navrow .blk{width:52px;height:52px;border-radius:12px;background:var(--g);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex:0 0 52px;}
+  .navrow .blk.dk{background:var(--gd);} .navrow .blk.gray{background:#6B7684;}
+  .navrow.funcCard .blk{width:62px;height:62px;border-radius:16px;font-size:20px;flex-basis:62px;}
+  .navrow .txt{flex:1;margin-left:12px;}
+  .navrow .t{font-weight:800;font-size:16px;}
+  .navrow.funcCard .t{font-size:20px;}
+  .navrow .d{font-size:12.5px;color:var(--gray);margin-top:3px;}
+  .navrow.funcCard .d{font-size:14px;margin-top:5px;}
+  .navrow .badge{font-weight:800;color:var(--gd);font-size:16px;margin-right:8px;background:var(--tint);border:1px solid var(--tint2);border-radius:10px;padding:6px 10px;min-width:40px;text-align:center;}
+  .navrow .chev{color:var(--gray);font-size:20px;}
+  .seg{display:flex;gap:8px;margin-bottom:12px;}
+  .seg button{flex:1;padding:12px;border-radius:10px;border:2px solid var(--bd);background:#fff;font-size:15px;font-weight:700;color:var(--gray);}
+  .seg button.on{background:var(--g);color:#fff;border-color:var(--g);}
+  .btn{display:block;width:100%;padding:15px;border:none;border-radius:13px;font-size:17px;font-weight:800;color:#fff;background:var(--g);margin-bottom:10px;min-height:54px;}
+  .btn.dk{background:var(--gd);} .btn.ghost{background:#fff;color:var(--g);border:2px solid var(--g);}
+  .btn.danger{background:#fff;color:var(--red);border:2px solid var(--red);}
+  .btn:disabled{opacity:.4;}
+  .row2{display:flex;gap:8px;} .row2 .btn{flex:1;}
+  input[type=text],select.formsel{width:100%;padding:13px;border:2px solid var(--bd);border-radius:10px;font-size:16px;background:#fff;min-height:52px;}
+  label{display:block;font-size:12px;font-weight:800;color:var(--gray);margin:10px 0 5px;}
+  .list{list-style:none;margin:0;padding:0;}
+  .li{display:flex;align-items:center;justify-content:space-between;padding:13px 12px;border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;background:#fff;gap:8px;min-height:62px;}
+  .code{font-family:Consolas,monospace;font-weight:700;font-size:16px;}
+  .meta{font-size:12px;color:var(--gray);margin-top:3px;}
+  .pill{font-size:12px;font-weight:700;padding:4px 9px;border-radius:20px;display:inline-block;}
+  .pill.day{background:var(--tint2);color:var(--gd);}
+  .pill.norm{background:#EEF1F4;color:var(--gray);}
+  .pill.viol{background:#FFF5F5;color:var(--red);}
+  .pill.off{background:#EEF1F4;color:#8B95A1;}
+  .del{background:none;border:none;color:var(--red);font-size:14px;font-weight:800;padding:8px;}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .kpi3{grid-template-columns:1fr 1fr 1fr;}
+  .kpi div{background:var(--tint);border:1px solid var(--bd);border-radius:10px;padding:12px;text-align:center;}
+  .kpi .n{font-size:28px;font-weight:800;color:var(--gd);}
+  .kpi .l{font-size:12px;color:var(--gray);margin-top:3px;}
+  .kpi .pink{background:var(--pink);border-color:var(--pinkbd);}
+  .kpi .pink .n,.kpi .pink .l{color:var(--pinktxt);font-weight:900;}
+  .sub{font-size:12px;color:var(--gray);font-weight:700;margin:14px 0 6px;}
+  .empty{color:var(--gray);font-size:14px;text-align:center;padding:20px;}
+  #reader{border-radius:12px;overflow:hidden;margin-bottom:10px;}
+  .scanResult{background:#fff;border:2px solid var(--tint2);border-radius:14px;padding:14px;margin:10px 0;}
+  .scanResult .srLabel{font-size:12px;color:var(--gray);font-weight:800;margin-bottom:4px;}
+  .scanResult .srCode{font-family:Consolas,monospace;font-size:26px;font-weight:900;color:var(--gd);}
+  .scanResult .srMsg{font-size:14px;font-weight:800;color:var(--gd);margin-top:4px;}
+  .scanResult.err{border-color:#F1B8B1;background:#FFF7F6;}
+  .scanResult.err .srCode,.scanResult.err .srMsg{color:var(--red);}
+  .scanResult.warn{border-color:var(--yellowbd);background:var(--yellow);}
+  .scanResult.warn .srMsg{color:#7A5B00;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:24px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:50;max-width:90%;text-align:center;}
+  .toast.show{opacity:1;} .toast.err{background:var(--red);} .toast.warn{background:#B8860B;}
+  .sessionbar{background:var(--tint2);border:1px solid var(--g);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--gd);font-weight:700;margin-bottom:10px;}
+  .note{background:var(--redbg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:11px;font-size:13px;margin-bottom:10px;line-height:1.5;}
+  .info{background:var(--tint);border:1px solid var(--tint2);color:var(--gd);border-radius:10px;padding:11px;font-size:13px;margin-bottom:10px;font-weight:700;line-height:1.5;}
+  .pageBack{display:flex;align-items:center;width:100%;min-height:56px;border:2px solid var(--yellowbd);background:var(--yellow);color:#3A2A00;font-weight:900;border-radius:14px;padding:14px 16px;margin:0 0 14px;font-size:17px;box-shadow:0 4px 12px rgba(120,90,0,.15);}
+  .readyChoiceGrid{display:grid;grid-template-columns:1fr;gap:12px;margin:10px 0 14px;}
+  .readyChoiceCard{width:100%;border:2px solid var(--bd);background:#fff;border-radius:18px;padding:22px 18px;text-align:left;cursor:pointer;box-shadow:0 6px 18px rgba(0,94,62,.08);min-height:140px;display:flex;align-items:center;gap:16px;}
+  .readyChoiceCard .icon{width:70px;height:70px;border-radius:18px;background:var(--g);color:#fff;font-size:28px;font-weight:900;display:flex;align-items:center;justify-content:center;flex:0 0 70px;}
+  .readyChoiceCard.norm .icon{background:#6B7684;}
+  .readyChoiceCard .title{font-size:22px;font-weight:900;color:var(--slate);}
+  .readyChoiceCard .desc{font-size:14px;color:var(--gray);margin-top:5px;font-weight:700;}
+  .readyChoiceCard.day{border-color:var(--tint2);}
+  .selectedType{background:var(--tint);border:1.5px solid var(--tint2);border-radius:14px;padding:11px 14px;margin:0 0 12px;font-size:15px;font-weight:900;color:var(--gd);}
+  .inputChoiceGrid{display:grid;gap:12px;margin:10px 0 14px;}
+  .inputChoiceCard{width:100%;border:2px solid var(--bd);background:#fff;border-radius:18px;padding:20px 18px;text-align:left;cursor:pointer;box-shadow:0 6px 18px rgba(0,94,62,.08);}
+  .inputChoiceCard.scan{display:flex;align-items:center;gap:16px;border-color:var(--tint2);}
+  .inputChoiceCard .icon{width:70px;height:70px;border-radius:18px;background:var(--g);color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;flex:0 0 70px;}
+  .inputChoiceCard .title{font-size:20px;font-weight:900;color:var(--slate);}
+  .inputChoiceCard .desc{font-size:14px;color:var(--gray);margin-top:5px;font-weight:700;}
+  .crumb{background:#fff;border-bottom:1px solid var(--bd);padding:9px 14px;font-size:13px;color:var(--gray);display:flex;align-items:center;gap:6px;}
+  .crumb b{color:var(--gd);}
+  .back{background:var(--yellow);border:1.5px solid var(--yellowbd);color:#3A2A00;font-weight:900;font-size:14px;padding:7px 12px;border-radius:999px;}
+  .acctActions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .miniBtn{border:1px solid var(--bd);background:#fff;border-radius:8px;padding:7px 9px;font-size:12px;font-weight:800;color:var(--slate);}
+  .miniBtn.green{border-color:var(--g);color:var(--g);}
+  .miniBtn.red{border-color:var(--red);color:var(--red);}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .gsSetupBox{background:var(--yellow);border:2px solid var(--yellowbd);border-radius:14px;padding:16px;margin-bottom:16px;}
+  .gsSetupBox .t{font-weight:900;font-size:15px;color:#7A5B00;margin-bottom:8px;}
+  .gsSetupBox input{width:100%;padding:11px;border:2px solid var(--yellowbd);border-radius:9px;font-size:14px;background:#fff;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span>FASSTO 스캔앱</span>
+    <select id="role" onchange="onRole()">
+      <option value="out">출고장</option>
+      <option value="load">상차장</option>
+      <option value="master">마스터</option>
+    </select>
+  </div>
+  <div class="wd" id="wdLabel"></div>
+  <div class="mycenter" id="myCenterBar" style="display:none"></div>
+</header>
+<div id="gsBanner" class="gsBanner loading">구글 시트 연결 확인 중...</div>
+<div id="crumb" class="crumb" style="display:none"></div>
+<div class="proto">테스트 화면 · 구글 시트 연동 버전 · Apps Script URL 설정 필요</div>
+<main id="app"></main>
+<div id="toast" class="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// 설정 — Apps Script 웹앱 URL을 아래에 입력하세요
+// ═══════════════════════════════════════════════════
+let GS_URL = localStorage.getItem("gs_url") || "";
+
+const GROUPS=[
+  {name:"용인1센터",floors:[["YI00","지하1층"],["YI01","1층"],["YI02","2층"],["YI03","3층"]]},
+  {name:"용인2센터",floors:[["YI21","1층"],["YI22","2층"],["YI23","3층"]]},
+];
+const FLOOR={};
+GROUPS.forEach(g=>g.floors.forEach(f=>FLOOR[f[0]]={group:g.name,floor:f[1]}));
+function centerName(c){return FLOOR[c]?FLOOR[c].group+" "+FLOOR[c].floor:c;}
+function centerOptions(sel,all){
+  let o=all?`<option value="">전 센터</option>`:"";
+  GROUPS.forEach(g=>g.floors.forEach(([code,fl])=>o+=`<option value="${code}" ${sel===code?"selected":""}>${g.name} ${fl} (${code})</option>`));
+  return o;
+}
+
+// ─── 워킹데이 ───────────────────────────────────────
+function workingDay(){
+  const n=new Date();
+  const d=new Date(n);
+  if(n.getHours()<7) d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+
+// ─── 로컬 캐시 (오프라인·빠른 렌더용) ───────────────
+let CACHE = JSON.parse(localStorage.getItem("fs_cache")||"{}");
+// {ready:[], loading:[], accounts:[]}
+function saveCache(){localStorage.setItem("fs_cache",JSON.stringify(CACHE));}
+
+// ─── 네비게이션 상태 ────────────────────────────────
+let NAV={screen:"center",center:null,func:null,readyStep:null};
+let S={dtype:"당일",session:null,editAccountId:null};
+
+function role(){return document.getElementById("role").value;}
+function isWorker(){return role()==="out"||role()==="load";}
+function currentCenter(){
+  if(role()==="master") return NAV.center||"YI01";
+  return localStorage.getItem("worker_center")||"YI01";
+}
+function onWorkerCenterChange(v){localStorage.setItem("worker_center",v);render();}
+function onRole(){NAV={screen:isWorker()?"menu":"center",center:null,func:null,readyStep:null};render();}
+function goCenter(c){NAV.center=c;NAV.screen="menu";render();}
+function goFunc(f){NAV.func=f;NAV.screen="func";NAV.readyStep=f==="ready"?"type":null;render();}
+function back(){
+  if(NAV.screen==="func"){NAV.screen="menu";NAV.func=null;NAV.readyStep=null;}
+  else if(NAV.screen==="menu"&&role()==="master"){NAV.screen="center";NAV.center=null;}
+  render();
+}
+function pageBackHtml(label){return `<button class="pageBack" onclick="back()">‹ ${label||"기능 메뉴로"}</button>`;}
+function funcName(f){return({ready:"파렛트 준비 등록",load:"트럭 상차 스캔",loadstatus:"아직 안 실은 파렛트",loadedstatus:"트럭 상차 완료",dash:"현황 대시보드",depart:"상차내역·출차",accounts:"계정 관리",setup:"구글 시트 설정"})[f]||f;}
+
+// ─── 구글 시트 API 호출 ─────────────────────────────
+async function gsGet(params){
+  if(!GS_URL) return null;
+  const qs=Object.entries(params).map(([k,v])=>k+"="+encodeURIComponent(v)).join("&");
+  try{const r=await fetch(GS_URL+"?"+qs);return await r.json();}catch(e){return null;}
+}
+async function gsPost(body){
+  if(!GS_URL) return null;
+  try{const r=await fetch(GS_URL,{method:"POST",body:JSON.stringify(body)});return await r.json();}catch(e){return null;}
+}
+
+// ─── 연결 확인 ──────────────────────────────────────
+async function checkConnection(){
+  const banner=document.getElementById("gsBanner");
+  if(!GS_URL){
+    banner.className="gsBanner fail";
+    banner.textContent="구글 시트 미연결 — 설정 버튼에서 Apps Script URL을 입력하세요";
+    return false;
+  }
+  banner.className="gsBanner loading"; banner.textContent="연결 확인 중...";
+  const r=await gsGet({action:"ping"});
+  if(r&&r.ok){banner.className="gsBanner ok";banner.textContent="구글 시트 연결됨 ✓";return true;}
+  banner.className="gsBanner fail";banner.textContent="구글 시트 연결 실패 — URL을 확인하세요";
+  return false;
+}
+
+// ─── 데이터 로드 ────────────────────────────────────
+async function loadData(center){
+  const wd=workingDay();
+  const [r1,r2]=await Promise.all([
+    gsGet({action:"getReady",center_code:center,working_day:wd}),
+    gsGet({action:"getLoading",center_code:center,working_day:wd})
+  ]);
+  if(r1&&r1.rows) CACHE.ready=(CACHE.ready||[]).filter(x=>x.center!==center||x.wd!==wd).concat(r1.rows.map(x=>({...x,center:x.center_code,code:x.label_code,dtype:x.delivery_type,wd:x.working_day,at:x.scanned_at,method:x.input_method,rowId:x.row_id})));
+  if(r2&&r2.rows) CACHE.loading=(CACHE.loading||[]).filter(x=>x.center!==center||x.wd!==wd).concat(r2.rows.map(x=>({...x,center:x.center_code,code:x.label_code,dtype:x.delivery_type,wd:x.working_day,at:x.scanned_at,method:x.input_method,rowId:x.row_id,departed:x.departed==="Y"})));
+  saveCache();render();
+}
+
+function readyOf(c){return (CACHE.ready||[]).filter(r=>r.center===c&&r.wd===workingDay()&&!r.deleted);}
+function loadedOf(c){return (CACHE.loading||[]).filter(r=>r.center===c&&r.wd===workingDay()&&!r.deleted);}
+function pendingOf(c){const lc=new Set(loadedOf(c).map(x=>x.code));return readyOf(c).filter(r=>!lc.has(r.code));}
+
+// ─── 토스트 ─────────────────────────────────────────
+let toastT;
+function toast(m,t){const e=document.getElementById("toast");e.className="toast show "+(t||"");e.textContent=m;clearTimeout(toastT);toastT=setTimeout(()=>e.className="toast",2500);}
+
+// ─── 준비등록 스캔 ──────────────────────────────────
+async function readyScan(code,method){
+  code=(code||"").trim().toUpperCase();if(!code){toast("라벨 코드를 입력하세요","err");return;}
+  const c=currentCenter(),wd=workingDay();
+  if(readyOf(c).some(r=>r.code===code)){toast("이미 준비 등록된 라벨입니다 ("+code+")","err");return;}
+  // 낙관적 업데이트 (오프라인에서도 즉시 표시)
+  const tmpId="tmp_"+Date.now();
+  const item={rowId:tmpId,center:c,code,dtype:S.dtype,wd,at:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),method:method||"스캔",synced:false};
+  CACHE.ready=(CACHE.ready||[]).concat([item]);saveCache();
+  if(scanner) await closeScanner();
+  render();
+  toast("준비 등록 ✓ "+code);
+  // 구글 시트 동기화
+  if(GS_URL){
+    const res=await gsPost({action:"addReady",data:{center_code:c,center_name:centerName(c),label_code:code,delivery_type:S.dtype,working_day:wd,scanned_at:item.at,input_method:item.method}});
+    if(res&&res.ok){CACHE.ready=CACHE.ready.map(r=>r.rowId===tmpId?{...r,rowId:res.rowId,synced:true}:r);saveCache();}
+    else if(res&&res.duplicate){CACHE.ready=CACHE.ready.filter(r=>r.rowId!==tmpId);saveCache();render();toast("이미 준비 등록된 라벨입니다","err");}
+  }
+}
+
+// ─── 준비등록 삭제 ──────────────────────────────────
+async function delReady(rowId,code){
+  if(!confirm(`라벨 [${code}]을 삭제하겠습니까?\n삭제 후 복구가 어렵습니다.`)) return;
+  CACHE.ready=(CACHE.ready||[]).filter(r=>r.rowId!==rowId);saveCache();render();toast("삭제했습니다");
+  if(GS_URL&&rowId&&!String(rowId).startsWith("tmp_")) await gsPost({action:"deleteReady",rowId});
+}
+
+// ─── 상차 세션 ──────────────────────────────────────
+function startSession(){
+  const v=(document.getElementById("veh")?.value||"").trim();
+  S.session={center:currentCenter(),wd:workingDay(),vehicle:v,buffer:[],startedAt:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})};
+  render();toast("상차 시작"+(v?" · 차량 "+v:""));
+}
+function cancelSession(){
+  if(!confirm("상차를 취소하겠습니까?\n스캔한 데이터가 모두 사라집니다.")) return;
+  S.session=null;render();
+}
+async function loadScan(code,method){
+  code=(code||"").trim().toUpperCase();if(!code){toast("라벨 코드를 입력하세요","err");return;}
+  if(!S.session){toast("먼저 [트럭 상차 시작]을 누르세요","err");return;}
+  const c=currentCenter(),wd=workingDay();
+  if(loadedOf(c).some(r=>r.code===code)||S.session.buffer.some(b=>b.code===code)){toast("이미 상차된 라벨입니다 ("+code+")","err");return;}
+  const ready=readyOf(c).find(r=>r.code===code),viol=!ready;
+  S.session.buffer.unshift({code,dtype:ready?ready.dtype:"-",viol,method:method||"스캔"});
+  if(scanner) await closeScanner();
+  render();
+  toast(viol?("준비 등록 없이 상차됩니다 ("+code+") — 기록됨"):("상차 스캔 ✓ "+code),viol?"warn":"");
+}
+function delSessionBuffer(i){
+  const item=S.session.buffer[i];
+  if(!confirm(`세션에서 [${item.code}]을 삭제하겠습니까?`)) return;
+  S.session.buffer.splice(i,1);render();
+}
+async function completeLoad(){
+  const n=S.session.buffer.length;if(!n){toast("스캔된 파렛트가 없습니다","err");return;}
+  if(!confirm(`${n}개 상차가 맞습니까?\n차량: ${S.session.vehicle||"미입력"}`)) return;
+  const c=S.session.center,wd=S.session.wd,t=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+  const sessionId="ses_"+Date.now();
+  for(const b of S.session.buffer){
+    const tmpId="tmp_"+Date.now()+"_"+b.code;
+    CACHE.loading=(CACHE.loading||[]).concat([{rowId:tmpId,center:c,code:b.code,dtype:b.dtype,wd,vehicle:S.session.vehicle,viol:b.viol,at:t,method:b.method,departed:false,synced:false}]);
+    if(GS_URL){
+      const res=await gsPost({action:"addLoading",data:{center_code:c,center_name:centerName(c),label_code:b.code,working_day:wd,session_id:sessionId,vehicle_no:S.session.vehicle,loading_started_at:S.session.startedAt,scanned_at:t,loading_completed_at:t,input_method:b.method}});
+      if(res&&res.ok) CACHE.loading=CACHE.loading.map(r=>r.rowId===tmpId?{...r,rowId:res.rowId,synced:true}:r);
+    }
+  }
+  saveCache();S.session=null;render();toast(n+"개 상차 완료 ✓");
+}
+async function delLoading(rowId,code){
+  if(!confirm(`상차 기록 [${code}]을 삭제하겠습니까?`)) return;
+  CACHE.loading=(CACHE.loading||[]).filter(r=>r.rowId!==rowId);saveCache();render();toast("삭제했습니다");
+  if(GS_URL&&rowId&&!String(rowId).startsWith("tmp_")) await gsPost({action:"deleteLoading",rowId});
+}
+async function toggleDepart(rowId,cur){
+  const item=(CACHE.loading||[]).find(r=>r.rowId===rowId);if(!item)return;
+  item.departed=!cur;saveCache();render();
+  if(GS_URL&&!String(rowId).startsWith("tmp_")) await gsPost({action:"updateDepart",rowId,departed:!cur});
+}
+
+// ─── 계정 관리 ──────────────────────────────────────
+async function loadAccounts(){
+  const r=await gsGet({action:"getAccounts"});
+  if(r&&r.rows) CACHE.accounts=r.rows.map(a=>({...a,id:a.account_id,loginId:a.login_id,role:a.role,center:a.assigned_center,active:a.active==="Y"}));
+  saveCache();render();
+}
+function roleLabel(r){return({out:"출고장",load:"상차장",master:"마스터"})[r]||r;}
+async function saveAccount(){
+  const name=document.getElementById("accName")?.value.trim();
+  const loginId=document.getElementById("accLogin")?.value.trim();
+  const role=document.getElementById("accRole")?.value;
+  const center=document.getElementById("accCenter")?.value;
+  if(!name||!loginId){toast("이름과 로그인ID를 입력하세요","err");return;}
+  const data={name,login_id:loginId,role,assigned_center:role==="master"?"ALL":center,active:true,account_id:S.editAccountId||null};
+  const res=await gsPost({action:"saveAccount",data});
+  if(res&&res.ok){toast(S.editAccountId?"수정 완료":"계정 추가 완료");S.editAccountId=null;await loadAccounts();}
+  else toast("저장 실패","err");
+}
+function editAccount(id){S.editAccountId=id;render();}
+function resetAccountForm(){S.editAccountId=null;render();}
+async function toggleAccount(id){const res=await gsPost({action:"toggleAccount",accountId:id});if(res&&res.ok){await loadAccounts();}else toast("오류","err");}
+async function deleteAccount(id){if(!confirm("계정을 삭제하겠습니까?"))return;const res=await gsPost({action:"deleteAccount",accountId:id});if(res&&res.ok){await loadAccounts();}else toast("오류","err");}
+function onAccRoleChange(){const v=document.getElementById("accRole")?.value;const sel=document.getElementById("accCenter");if(sel)sel.disabled=v==="master";}
+
+// ─── 카메라 스캔 ────────────────────────────────────
+let scanner=null;
+function openScanner(cb){
+  document.getElementById("app").innerHTML=`<h2>바코드 스캔</h2><div id="reader"></div>
+    <div class="note">카메라가 안 열리면 HTTPS 접속인지 확인하세요. 권한 요청 시 [허용]을 누르세요.</div>
+    <button class="btn ghost" onclick="closeScanner()">스캔 닫기</button>`;
+  scanner=new Html5Qrcode("reader");
+  scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:260,height:260},
+    formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128]},
+    t=>{if(navigator.vibrate)navigator.vibrate([60]);cb(t);},()=>{})
+  .catch(e=>{document.getElementById("reader").innerHTML='<div class="empty">카메라를 열 수 없습니다.<br>HTTPS 접속 + 카메라 권한 필요<br><small>'+e+'</small></div>';});
+}
+async function closeScanner(){if(scanner){try{await scanner.stop();}catch(e){}scanner=null;}render();}
+
+// ─── 렌더 ───────────────────────────────────────────
+function render(){
+  document.getElementById("wdLabel").textContent="워킹데이 "+workingDay()+" (07:00~익일 06:59)";
+  const bar=document.getElementById("myCenterBar");
+  if(isWorker()){
+    bar.style.display="flex";
+    const c=currentCenter();
+    bar.innerHTML=`<div>내 센터: <b>${centerName(c)} (${c})</b></div><div class="miniCenter">테스트 변경 <select onchange="onWorkerCenterChange(this.value)">${centerOptions(c,false)}</select></div>`;
+  } else bar.style.display="none";
+  const cr=document.getElementById("crumb");
+  if(isWorker()||NAV.screen==="center"){cr.style.display="none";}
+  else{cr.style.display="flex";cr.innerHTML=`<button class="back" onclick="back()">‹ 뒤로</button><span><b>${centerName(NAV.center||"")}</b>${NAV.screen==="func"?" › "+funcName(NAV.func):""}</span>`;}
+  if(scanner)return;
+  if(NAV.screen==="center")renderCenter();
+  else if(NAV.screen==="menu")renderMenu();
+  else renderFunc();
+}
+
+function renderCenter(){
+  let html=`<h2>마스터 · 센터 선택</h2>`;
+  GROUPS.forEach(g=>{
+    html+=`<div class="grouplabel">${g.name}</div>`;
+    g.floors.forEach(([code,fl])=>{
+      const r=readyOf(code).length,l=loadedOf(code).length;
+      html+=`<div class="navrow" onclick="goCenter('${code}')"><div class="blk">${code}</div><div class="txt"><div class="t">${g.name} ${fl}</div><div class="d">준비 ${r} · 상차 ${l} (오늘)</div></div><span class="chev">›</span></div>`;
+    });
+  });
+  html+=`<button class="btn ghost" style="margin-top:8px" onclick="goFunc('setup')">⚙ 구글 시트 설정</button>`;
+  document.getElementById("app").innerHTML=html;
+}
+
+function renderMenu(){
+  const r=role(),c=currentCenter();NAV.center=c;
+  const ready=readyOf(c),loaded=loadedOf(c),pend=pendingOf(c);
+  let funcs=[];
+  if(r==="out") funcs=[{f:"ready",t:"파렛트 준비 등록",d:"라벨 스캔 후 준비 등록",badge:ready.length}];
+  else if(r==="load") funcs=[
+    {f:"loadstatus",t:"아직 안 실은 파렛트",d:"대기 중인 파렛트 확인",badge:pend.length},
+    {f:"load",t:"트럭 상차 스캔",d:"트럭에 실을 때 스캔",badge:"시작"},
+    {f:"loadedstatus",t:"트럭 상차 완료",d:"상차 완료된 파렛트 목록",badge:loaded.length},
+  ];
+  else funcs=[
+    {f:"dash",t:"현황 대시보드",d:"전 센터 준비완료잔량·상차완료",badge:""},
+    {f:"depart",t:"상차내역·출차",d:"출차 처리",badge:loaded.length},
+    {f:"accounts",t:"계정 관리",d:"계정 추가·수정",badge:(CACHE.accounts||[]).length},
+    {f:"setup",t:"구글 시트 설정",d:"Apps Script URL 연결",badge:""},
+  ];
+  let html=`<h2>${centerName(c)} · 작업 선택</h2>`;
+  if(isWorker()) html+=`<div class="info">내 센터가 맞는지 확인 후 아래 버튼을 누르세요.</div>`;
+  funcs.forEach((x,i)=>{
+    html+=`<div class="navrow funcCard" onclick="goFunc('${x.f}')"><div class="blk ${i===1?"dk":i===2?"gray":""}">${i+1}</div><div class="txt"><div class="t">${x.t}</div><div class="d">${x.d}</div></div>${x.badge!==""?`<span class="badge">${x.badge}</span>`:""}<span class="chev">›</span></div>`;
+  });
+  document.getElementById("app").innerHTML=html;
+  // 백그라운드로 최신 데이터 로드
+  if(GS_URL) loadData(c);
+}
+
+function renderFunc(){
+  const f=NAV.func;
+  if(f==="ready") return funcReady();
+  if(f==="load") return funcLoad();
+  if(f==="loadstatus") return funcLoadStatus();
+  if(f==="loadedstatus") return funcLoadedStatus();
+  if(f==="dash") return funcDash();
+  if(f==="depart") return funcDepart();
+  if(f==="accounts") return funcAccounts();
+  if(f==="setup") return funcSetup();
+}
+
+function funcReady(){
+  const c=currentCenter(),list=readyOf(c),step=NAV.readyStep||"type";
+  const listHtml=`<div class="sub">오늘 준비 등록 (${list.length}) · 최신순</div>
+   ${list.length?'<ul class="list">'+list.slice().reverse().map(it=>`<li class="li"><div><span class="code">${it.code}</span> <span class="pill ${it.dtype==="당일"?"day":"norm"}">${it.dtype}</span><div class="meta">${it.at} · ${it.method}${!it.synced?"  ⏳":"  ✓"}</div></div><button class="del" onclick="delReady('${it.rowId}','${it.code}')">삭제</button></li>`).join("")+'</ul>':'<div class="empty">아직 준비 등록된 파렛트가 없습니다.</div>'}`;
+  if(step==="type"){
+    document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>파렛트 준비 등록</h2>
+      <div class="info">1. 배송유형을 먼저 선택하세요</div>
+      <div class="readyChoiceGrid">
+        <button class="readyChoiceCard day" onclick="S.dtype='당일';NAV.readyStep='input';render()"><div class="icon">당</div><div><div class="title">당일배송</div><div class="desc">오늘 먼저 실어야 하는 파렛트</div></div></button>
+        <button class="readyChoiceCard norm" onclick="S.dtype='일반';NAV.readyStep='input';render()"><div class="icon" style="background:#6B7684">일</div><div><div class="title">일반배송</div><div class="desc">일반 출고 파렛트</div></div></button>
+      </div>${listHtml}`;
+    return;
+  }
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<button class="pageBack" style="margin-bottom:10px;background:#FFF3B0" onclick="NAV.readyStep='type';render()">‹ 배송유형 다시 선택</button>
+   <h2>파렛트 준비 등록</h2>
+   <div class="selectedType">선택한 배송유형: ${S.dtype}배송</div>
+   <div class="inputChoiceGrid">
+     <button class="inputChoiceCard scan" onclick="openScanner(c=>readyScan(c))"><div class="icon">📷</div><div><div class="title">카메라로 라벨 스캔</div><div class="desc">카메라로 라벨을 비추면 자동 등록됩니다</div></div></button>
+     <div class="inputChoiceCard"><div class="title">라벨번호 직접 입력</div><div class="desc">카메라가 안 될 때 사용하세요</div>
+       <input type="text" id="manual" placeholder="라벨번호 입력 (예: YI010001)" style="margin-top:10px"/>
+       <button class="btn ghost" style="margin-top:8px" onclick="readyScan(document.getElementById('manual').value,'수기')">직접 입력으로 등록</button>
+     </div>
+   </div>${listHtml}`;
+}
+
+function funcLoad(){
+  const c=currentCenter();
+  let body;
+  if(S.session&&S.session.center===c){
+    const bufHtml=S.session.buffer.length?`<div class="sub">이번에 스캔한 파렛트 (${S.session.buffer.length})</div><ul class="list">`+S.session.buffer.map((b,i)=>`<li class="li"><div><span class="code">${b.code}</span> ${b.viol?'<span class="pill viol">준비누락</span>':`<span class="pill ${b.dtype==="당일"?"day":"norm"}">${b.dtype}</span>`}</div><button class="del" onclick="delSessionBuffer(${i})">삭제</button></li>`).join("")+'</ul>':"";
+    body=`<div class="sessionbar">상차 진행중 · 차량 ${S.session.vehicle||"미입력"} · ${S.session.buffer.length}개 (시작 ${S.session.startedAt})</div>
+      <button class="btn" onclick="openScanner(c=>loadScan(c))">📷 카메라로 라벨 스캔</button>
+      <input type="text" id="manualL" placeholder="라벨번호 직접 입력"/>
+      <button class="btn ghost" style="margin-top:8px" onclick="loadScan(document.getElementById('manualL').value,'수기')">라벨번호 직접 입력</button>
+      <div class="row2"><button class="btn dk" onclick="completeLoad()">상차 끝내기 (${S.session.buffer.length}개)</button><button class="btn danger" onclick="cancelSession()">상차 취소</button></div>${bufHtml}`;
+  } else {
+    body=`<div class="card"><label>차량번호 4자리 (선택)</label><input type="text" id="veh" placeholder="예: 5678" maxlength="4" inputmode="numeric"/><button class="btn" style="margin-top:12px" onclick="startSession()">트럭 상차 시작</button></div>`;
+  }
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>트럭 상차 스캔</h2><div class="info">트럭에 실제로 싣는 순간에만 스캔하세요</div>${body}`;
+}
+
+function funcLoadStatus(){
+  const c=currentCenter(),pend=pendingOf(c),loaded=loadedOf(c);
+  const day=pend.filter(r=>r.dtype==="당일"),norm=pend.filter(r=>r.dtype==="일반");
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>아직 안 실은 파렛트</h2>
+   <div class="kpi kpi3"><div><div class="n">${day.length}</div><div class="l">당일 남음</div></div><div><div class="n">${norm.length}</div><div class="l">일반 남음</div></div><div><div class="n">${loaded.length}</div><div class="l">상차 완료</div></div></div>
+   <div class="sub">당일 (${day.length})</div>${day.length?'<ul class="list">'+day.map(r=>`<li class="li"><span class="code">${r.code}</span><span class="pill day">당일</span></li>`).join("")+"</ul>":'<div class="empty">당일 남음 없음</div>'}
+   <div class="sub">일반 (${norm.length})</div>${norm.length?'<ul class="list">'+norm.map(r=>`<li class="li"><span class="code">${r.code}</span><span class="pill norm">일반</span></li>`).join("")+"</ul>":'<div class="empty">일반 남음 없음</div>'}`;
+}
+
+function funcLoadedStatus(){
+  const c=currentCenter(),loaded=loadedOf(c);
+  const day=loaded.filter(r=>r.dtype==="당일"),norm=loaded.filter(r=>r.dtype==="일반");
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>트럭 상차 완료</h2>
+   <div class="kpi kpi3"><div><div class="n">${day.length}</div><div class="l">당일 완료</div></div><div><div class="n">${norm.length}</div><div class="l">일반 완료</div></div><div><div class="n">${loaded.length}</div><div class="l">전체 완료</div></div></div>
+   <div class="sub">완료 목록 (${loaded.length})</div>
+   ${loaded.length?'<ul class="list">'+loaded.map(l=>`<li class="li"><div><span class="code">${l.code}</span> <span class="pill ${l.dtype==="당일"?"day":"norm"}">${l.dtype}</span>${l.viol?' <span class="pill viol">준비누락</span>':''}<div class="meta">${l.at} · 차량 ${l.vehicle||"-"}</div></div><button class="del" onclick="delLoading('${l.rowId}','${l.code}')">삭제</button></li>`).join("")+"</ul>":'<div class="empty">아직 상차 완료된 파렛트가 없습니다.</div>'}`;
+}
+
+function funcDash(){
+  const rows=GROUPS.flatMap(g=>g.floors.map(([code])=>{
+    const pend=pendingOf(code),loaded=loadedOf(code);
+    return {code,pend:pend.length,loaded:loaded.length,pendDay:pend.filter(r=>r.dtype==="당일").length};
+  }));
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>현황 대시보드 (전 센터)</h2>
+   <div class="info">준비완료 잔량 = 아직 트럭에 안 실은 파렛트. 마감 시 0이어야 합니다.</div>
+   ${S.session?`<div class="note">⚠ 세션 미마감: ${centerName(S.session.center)} 차량 ${S.session.vehicle||"미입력"} (${S.session.buffer.length}개)</div>`:""}
+   ${rows.map(r=>`<div class="card"><div style="font-weight:800;margin-bottom:8px">${centerName(r.code)} <span style="color:var(--gray);font-size:12px">(${r.code})</span></div>
+     <div class="kpi"><div class="pink"><div class="n">${r.pend}</div><div class="l">준비완료 잔량${r.pendDay?" · 당일 "+r.pendDay:""}</div></div><div><div class="n">${r.loaded}</div><div class="l">상차 완료</div></div></div></div>`).join("")}`;
+}
+
+function funcDepart(){
+  const c=currentCenter(),loaded=loadedOf(c);
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>상차내역·출차</h2>
+   ${loaded.length?'<ul class="list">'+loaded.map(l=>`<li class="li"><div><span class="code">${l.code}</span> <span class="pill ${l.dtype==="당일"?"day":"norm"}">${l.dtype}</span>${l.viol?' <span class="pill viol">위반</span>':''}<div class="meta">${l.at} · 차량 ${l.vehicle||"-"}</div></div>
+     <button class="btn ghost" style="width:auto;padding:8px 12px;margin:0;font-size:13px;min-height:auto;${l.departed?"background:var(--gd);color:#fff;border-color:var(--gd)":""}" onclick="toggleDepart('${l.rowId}',${l.departed})">${l.departed?"출차완료":"출차"}</button></li>`).join("")+"</ul>":'<div class="empty">상차한 파렛트가 없습니다.</div>'}`;
+}
+
+function funcAccounts(){
+  const accs=CACHE.accounts||[];
+  const editing=accs.find(a=>a.id===S.editAccountId)||{name:"",loginId:"",role:"out",center:"YI01"};
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>계정 관리</h2>
+   <div class="card"><h2 style="margin-top:0;font-size:17px">${S.editAccountId?"계정 수정":"계정 추가"}</h2>
+     <label>이름</label><input type="text" id="accName" value="${editing.name}" placeholder="예: 홍길동"/>
+     <label>로그인ID</label><input type="text" id="accLogin" value="${editing.loginId||editing.login_id||""}" placeholder="예: out01"/>
+     <label>권한등급</label><select class="formsel" id="accRole" onchange="onAccRoleChange()"><option value="out" ${editing.role==="out"?"selected":""}>출고장</option><option value="load" ${editing.role==="load"?"selected":""}>상차장</option><option value="master" ${editing.role==="master"?"selected":""}>마스터</option></select>
+     <label>부여센터</label><select class="formsel" id="accCenter" ${editing.role==="master"?"disabled":""}>${centerOptions(editing.center||editing.assigned_center||"YI01",false)}</select>
+     <div class="row2" style="margin-top:12px"><button class="btn" onclick="saveAccount()">${S.editAccountId?"수정 저장":"계정 추가"}</button><button class="btn ghost" onclick="resetAccountForm()">초기화</button></div>
+   </div>
+   <div class="sub">계정 목록 (${accs.length})</div>
+   ${accs.length?'<ul class="list">'+accs.map(a=>`<li class="li"><div><b>${a.name}</b> <span class="pill ${a.active?"day":"off"}">${a.active?"활성":"비활성"}</span><div class="meta">ID ${a.loginId||a.login_id} · ${roleLabel(a.role)} · ${a.role==="master"?"전 센터":centerName(a.center||a.assigned_center)}</div></div><div class="acctActions"><button class="miniBtn green" onclick="editAccount('${a.id||a.account_id}')">수정</button><button class="miniBtn" onclick="toggleAccount('${a.id||a.account_id}')">${a.active?"비활성":"활성"}</button><button class="miniBtn red" onclick="deleteAccount('${a.id||a.account_id}')">삭제</button></div></li>`).join("")+'</ul>':'<div class="empty">등록된 계정이 없습니다.</div>'}
+   <button class="btn ghost" style="margin-top:10px" onclick="loadAccounts()">계정 목록 새로고침</button>`;
+}
+
+function funcSetup(){
+  document.getElementById("app").innerHTML=`${pageBackHtml()}<h2>구글 시트 설정</h2>
+   <div class="gsSetupBox">
+     <div class="t">Apps Script 웹앱 URL 입력</div>
+     <input type="text" id="gsUrlInput" value="${GS_URL}" placeholder="https://script.google.com/macros/s/.../exec"/>
+     <button class="btn" onclick="saveGsUrl()">저장 및 연결 테스트</button>
+   </div>
+   <div class="info">📋 설정 방법<br>1. 구글 시트 열기 → 확장 프로그램 → Apps Script<br>2. FASSTO_AppsScript.gs 코드 붙여넣기<br>3. SHEET_ID에 시트 ID 입력 후 저장<br>4. 배포 → 새 배포 → 웹앱 → 액세스: 모든 사용자<br>5. 배포 URL 위에 입력 후 저장</div>`;
+}
+async function saveGsUrl(){
+  const v=document.getElementById("gsUrlInput")?.value.trim();
+  if(!v){toast("URL을 입력하세요","err");return;}
+  GS_URL=v;localStorage.setItem("gs_url",v);
+  toast("연결 테스트 중...");
+  await checkConnection();
+}
+
+// ─── 초기 실행 ──────────────────────────────────────
+checkConnection();
+render();
+</script>
+</body>
+</html>
