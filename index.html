@@ -217,28 +217,205 @@ function readyOf(c){return (CACHE.ready||[]).filter(r=>String(r.center)===String
 function loadedOf(c){return (CACHE.loading||[]).filter(r=>String(r.center)===String(c)&&normalizeDateForApp(r.wd)===workingDay()&&!isDeletedFlag(r.deleted));}
 function pendingOf(c){const lc=new Set(loadedOf(c).map(x=>String(x.code)));return readyOf(c).filter(r=>!lc.has(String(r.code)));}
 let toastT;function toast(m,t){const e=document.getElementById("toast");e.className="toast show "+(t||"");e.textContent=m;clearTimeout(toastT);toastT=setTimeout(()=>e.className="toast",2500);}
-async function readyScan(code,method){code=(code||"").trim().toUpperCase();if(!code)return toast("라벨 코드를 입력하세요","err");const c=currentCenter(),wd=workingDay();if(readyOf(c).some(r=>r.code===code))return toast("이미 준비 등록된 라벨입니다 ("+code+")","err");const tmpId="tmp_"+Date.now();const item={rowId:tmpId,center:c,code,dtype:S.dtype,wd,at:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),method:method||"스캔",synced:false,worker_account:USER.loginId};CACHE.ready=(CACHE.ready||[]).concat([item]);saveCache();if(scanner)await closeScanner();render();toast("준비 등록 ✓ "+code);const res=await gsPost({action:"addReady",data:{center_code:c,center_name:centerName(c),label_code:code,delivery_type:S.dtype,working_day:wd,scanned_at:item.at,input_method:item.method,worker_account:USER.loginId}});if(res&&res.ok){CACHE.ready=CACHE.ready.map(r=>r.rowId===tmpId?{...r,rowId:res.rowId,synced:true}:r);saveCache();}else if(res&&res.duplicate){CACHE.ready=CACHE.ready.filter(r=>r.rowId!==tmpId);saveCache();render();toast("이미 준비 등록된 라벨입니다","err");}}
+
+// 중복 스캔/저장 연타 방지
+const SCAN_COOLDOWN_MS = 1000;
+let SCAN_LOCK_UNTIL = 0;
+let ACTION_LOCKS = {};
+function scanGuard(){
+  const now = Date.now();
+  if(now < SCAN_LOCK_UNTIL) return false;
+  SCAN_LOCK_UNTIL = now + SCAN_COOLDOWN_MS;
+  return true;
+}
+function actionLock(key){
+  if(ACTION_LOCKS[key]) return false;
+  ACTION_LOCKS[key] = true;
+  return true;
+}
+function actionUnlock(key){ delete ACTION_LOCKS[key]; }
+function lockButton(label){
+  let btn = null;
+  try{ btn = (typeof event !== "undefined" && event && event.currentTarget && event.currentTarget.tagName === "BUTTON") ? event.currentTarget : null; }catch(e){}
+  if(btn){
+    btn.disabled = true;
+    btn.dataset.oldText = btn.textContent || "";
+    if(label) btn.textContent = label;
+  }
+  return btn;
+}
+function unlockButton(btn){
+  if(btn){
+    btn.disabled = false;
+    if(btn.dataset.oldText) btn.textContent = btn.dataset.oldText;
+  }
+}
+
+async function readyScan(code,method){
+  code=(code||"").trim().toUpperCase();
+  if(!code)return toast("라벨 코드를 입력하세요","err");
+  if(!scanGuard()) return; // 전체 스캔 1초 잠금
+  const c=currentCenter(),wd=workingDay();
+  const lockKey="ready:"+c+":"+wd+":"+code;
+  if(!actionLock(lockKey)) return toast("저장 처리 중입니다. 잠시만 기다려주세요","warn");
+  const btn=lockButton("저장 중...");
+  try{
+    if(readyOf(c).some(r=>r.code===code))return toast("이미 준비 등록된 라벨입니다 ("+code+")","err");
+    const tmpId="tmp_"+Date.now();
+    const item={rowId:tmpId,center:c,code,dtype:S.dtype,wd,at:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),method:method||"스캔",synced:false,worker_account:USER.loginId};
+    CACHE.ready=(CACHE.ready||[]).concat([item]);
+    saveCache();
+    if(scanner)await closeScanner();
+    render();
+    toast("준비 등록 ✓ "+code);
+    const res=await gsPost({action:"addReady",data:{center_code:c,center_name:centerName(c),label_code:code,delivery_type:S.dtype,working_day:wd,scanned_at:item.at,input_method:item.method,worker_account:USER.loginId}});
+    if(res&&res.ok){
+      CACHE.ready=CACHE.ready.map(r=>r.rowId===tmpId?{...r,rowId:res.rowId,synced:true}:r);
+      saveCache();
+    }else if(res&&res.duplicate){
+      CACHE.ready=CACHE.ready.filter(r=>r.rowId!==tmpId);
+      saveCache();
+      render();
+      toast("이미 준비 등록된 라벨입니다","err");
+    }else{
+      CACHE.ready=CACHE.ready.filter(r=>r.rowId!==tmpId);
+      saveCache();
+      render();
+      toast("시트 저장 실패 — 관리자에게 문의하세요","err");
+    }
+  }finally{
+    actionUnlock(lockKey);
+    unlockButton(btn);
+  }
+}
+
 async function delReady(rowId,code){
-  // 상차 완료된 라벨은 삭제 불가
   const c=currentCenter();
   const loadedCodes=new Set(loadedOf(c).map(x=>String(x.code)));
   if(loadedCodes.has(String(code))){
     toast("상차 완료된 파렛트는 삭제할 수 없습니다. 마스터에게 문의하세요.","err");
     return;
   }
-  if(!confirm(`라벨 [${code}]을 삭제하겠습니까?\n삭제 후 복구가 어렵습니다.`))return;
-  CACHE.ready=(CACHE.ready||[]).filter(r=>r.rowId!==rowId);
-  saveCache();render();toast("삭제했습니다");
-  if(rowId&&!String(rowId).startsWith("tmp_"))await gsPost({action:"deleteReady",rowId});
+  if(!confirm(`라벨 [${code}]을 삭제하겠습니까?
+삭제 후 복구가 어렵습니다.`))return;
+  const lockKey="delReady:"+rowId;
+  if(!actionLock(lockKey)) return toast("삭제 처리 중입니다. 잠시만 기다려주세요","warn");
+  const btn=lockButton("삭제 중...");
+  try{
+    CACHE.ready=(CACHE.ready||[]).filter(r=>r.rowId!==rowId);
+    saveCache();
+    render();
+    toast("삭제했습니다");
+    if(rowId&&!String(rowId).startsWith("tmp_")){
+      const res=await gsPost({action:"deleteReady",rowId});
+      if(res&&!res.ok) toast(res.msg||"삭제 실패 — 새로고침 후 확인하세요","err");
+    }
+  }finally{
+    actionUnlock(lockKey);
+    unlockButton(btn);
+  }
 }
+
 function startSession(){const v=(document.getElementById("veh")?.value||"").trim();S.session={center:currentCenter(),wd:workingDay(),vehicle:v,buffer:[],startedAt:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),worker:USER.loginId};render();toast("상차 시작"+(v?" · 차량 "+v:""));}
 function cancelSession(){if(!confirm("상차를 취소하겠습니까?\n스캔한 데이터가 모두 사라집니다."))return;S.session=null;render();}
-async function loadScan(code,method){code=(code||"").trim().toUpperCase();if(!code)return toast("라벨 코드를 입력하세요","err");if(!S.session)return toast("먼저 [트럭 상차 시작]을 누르세요","err");const c=currentCenter();if(loadedOf(c).some(r=>r.code===code)||S.session.buffer.some(b=>b.code===code))return toast("이미 상차된 라벨입니다 ("+code+")","err");const ready=readyOf(c).find(r=>r.code===code),viol=!ready;S.session.buffer.unshift({code,dtype:ready?ready.dtype:"-",viol,method:method||"스캔"});if(scanner)await closeScanner();render();toast(viol?("준비 등록 없이 상차됩니다 ("+code+") — 기록됨"):("상차 스캔 ✓ "+code),viol?"warn":"");}
+async function loadScan(code,method){
+  code=(code||"").trim().toUpperCase();
+  if(!code)return toast("라벨 코드를 입력하세요","err");
+  if(!scanGuard()) return; // 전체 스캔 1초 잠금
+  if(!S.session)return toast("먼저 [트럭 상차 시작]을 누르세요","err");
+  const c=currentCenter();
+  if(loadedOf(c).some(r=>r.code===code)||S.session.buffer.some(b=>b.code===code))return toast("이미 상차된 라벨입니다 ("+code+")","err");
+  const ready=readyOf(c).find(r=>r.code===code),viol=!ready;
+  S.session.buffer.unshift({code,dtype:ready?ready.dtype:"-",viol,method:method||"스캔"});
+  if(scanner)await closeScanner();
+  render();
+  toast(viol?("준비 등록 없이 상차됩니다 ("+code+") — 기록됨"):("상차 스캔 ✓ "+code),viol?"warn":"");
+}
+
 function delSessionBuffer(i){const item=S.session.buffer[i];if(!confirm(`세션에서 [${item.code}]을 삭제하겠습니까?`))return;S.session.buffer.splice(i,1);render();}
-async function completeLoad(){const n=S.session.buffer.length;if(!n)return toast("스캔된 파렛트가 없습니다","err");if(!confirm(`${n}개 상차가 맞습니까?\n차량: ${S.session.vehicle||"미입력"}`))return;const c=S.session.center,wd=S.session.wd,t=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),sessionId="ses_"+Date.now();for(const b of S.session.buffer){const tmpId="tmp_"+Date.now()+"_"+b.code;CACHE.loading=(CACHE.loading||[]).concat([{rowId:tmpId,center:c,code:b.code,dtype:b.dtype,wd,vehicle:S.session.vehicle,viol:b.viol,at:t,method:b.method,departed:false,synced:false,worker_account:USER.loginId}]);const res=await gsPost({action:"addLoading",data:{center_code:c,center_name:centerName(c),label_code:b.code,working_day:wd,session_id:sessionId,vehicle_no:S.session.vehicle,loading_started_at:S.session.startedAt,scanned_at:t,loading_completed_at:t,input_method:b.method,worker_account:USER.loginId}});if(res&&res.ok)CACHE.loading=CACHE.loading.map(r=>r.rowId===tmpId?{...r,rowId:res.rowId,synced:true,viol:res.sequence_violation==="Y"}:r);}saveCache();S.session=null;render();toast(n+"개 상차 완료 ✓");}
-async function delLoading(rowId,code){if(!confirm(`상차 기록 [${code}]을 삭제하겠습니까?`))return;CACHE.loading=(CACHE.loading||[]).filter(r=>r.rowId!==rowId);saveCache();render();toast("삭제했습니다");if(rowId&&!String(rowId).startsWith("tmp_"))await gsPost({action:"deleteLoading",rowId});}
-async function toggleDepart(rowId,cur){const item=(CACHE.loading||[]).find(r=>r.rowId===rowId);if(!item)return;item.departed=!cur;saveCache();render();if(!String(rowId).startsWith("tmp_"))await gsPost({action:"updateDepart",rowId,departed:!cur});}
-async function saveAccount(){const name=document.getElementById("accName")?.value.trim(),loginId=document.getElementById("accLogin")?.value.trim(),password=document.getElementById("accPw")?.value||"",accRole=document.getElementById("accRole")?.value,center=document.getElementById("accCenter")?.value;if(!name||!loginId)return toast("이름과 로그인ID를 입력하세요","err");if(!S.editAccountId&&!password)return toast("신규 계정은 비밀번호가 필요합니다","err");const data={name,login_id:loginId,password,role:accRole,assigned_center:accRole==="master"?"ALL":center,active:true,account_id:S.editAccountId||null};const res=await gsPost({action:"saveAccount",data});if(res&&res.ok){toast(S.editAccountId?"수정 완료":"계정 추가 완료");S.editAccountId=null;await loadAccounts();render();}else toast((res&&res.msg)||"저장 실패","err");}
+async function completeLoad(){
+  if(!actionLock("completeLoad")) return toast("상차 완료 저장 중입니다. 잠시만 기다려주세요","warn");
+  const btn=lockButton("저장 중...");
+  try{
+    const n=S.session.buffer.length;
+    if(!n)return toast("스캔된 파렛트가 없습니다","err");
+    if(!confirm(`${n}개 상차가 맞습니까?
+차량: ${S.session.vehicle||"미입력"}`))return;
+    const c=S.session.center,wd=S.session.wd,t=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),sessionId="ses_"+Date.now();
+    let okCnt=0, failCnt=0;
+    for(const b of S.session.buffer){
+      const tmpId="tmp_"+Date.now()+"_"+b.code;
+      CACHE.loading=(CACHE.loading||[]).concat([{rowId:tmpId,center:c,code:b.code,dtype:b.dtype,wd,vehicle:S.session.vehicle,viol:b.viol,at:t,method:b.method,departed:false,synced:false,worker_account:USER.loginId}]);
+      const res=await gsPost({action:"addLoading",data:{center_code:c,center_name:centerName(c),label_code:b.code,working_day:wd,session_id:sessionId,vehicle_no:S.session.vehicle,loading_started_at:S.session.startedAt,scanned_at:t,loading_completed_at:t,input_method:b.method,worker_account:USER.loginId}});
+      if(res&&res.ok){
+        okCnt++;
+        CACHE.loading=CACHE.loading.map(r=>r.rowId===tmpId?{...r,rowId:res.rowId,synced:true,viol:res.sequence_violation==="Y"}:r);
+      }else{
+        failCnt++;
+        CACHE.loading=CACHE.loading.filter(r=>r.rowId!==tmpId);
+      }
+    }
+    saveCache();
+    S.session=null;
+    render();
+    toast(failCnt?`${okCnt}개 저장, ${failCnt}개 실패`:`${okCnt}개 상차 완료 ✓`,failCnt?"warn":"");
+  }finally{
+    actionUnlock("completeLoad");
+    unlockButton(btn);
+  }
+}
+
+async function delLoading(rowId,code){
+  if(!isMasterUser()) return toast("상차 완료 삭제는 마스터만 가능합니다","err");
+  if(!confirm(`상차 기록 [${code}]을 삭제하겠습니까?`))return;
+  const lockKey="delLoading:"+rowId;
+  if(!actionLock(lockKey)) return toast("삭제 처리 중입니다. 잠시만 기다려주세요","warn");
+  const btn=lockButton("삭제 중...");
+  try{
+    CACHE.loading=(CACHE.loading||[]).filter(r=>r.rowId!==rowId);
+    saveCache();
+    render();
+    toast("삭제했습니다");
+    if(rowId&&!String(rowId).startsWith("tmp_"))await gsPost({action:"deleteLoading",rowId});
+  }finally{
+    actionUnlock(lockKey);
+    unlockButton(btn);
+  }
+}
+
+async function toggleDepart(rowId,cur){
+  const lockKey="toggleDepart:"+rowId;
+  if(!actionLock(lockKey)) return toast("출차 처리 중입니다. 잠시만 기다려주세요","warn");
+  const btn=lockButton("처리 중...");
+  try{
+    const item=(CACHE.loading||[]).find(r=>r.rowId===rowId);
+    if(!item)return;
+    item.departed=!cur;
+    saveCache();
+    render();
+    if(!String(rowId).startsWith("tmp_"))await gsPost({action:"updateDepart",rowId,departed:!cur});
+  }finally{
+    actionUnlock(lockKey);
+    unlockButton(btn);
+  }
+}
+
+async function saveAccount(){
+  if(!actionLock("saveAccount")) return toast("계정 저장 중입니다. 잠시만 기다려주세요","warn");
+  const btn=lockButton("저장 중...");
+  try{
+    const name=document.getElementById("accName")?.value.trim(),loginId=document.getElementById("accLogin")?.value.trim(),password=document.getElementById("accPw")?.value||"",accRole=document.getElementById("accRole")?.value,center=document.getElementById("accCenter")?.value;
+    if(!name||!loginId)return toast("이름과 로그인ID를 입력하세요","err");
+    if(!S.editAccountId&&!password)return toast("신규 계정은 비밀번호가 필요합니다","err");
+    const data={name,login_id:loginId,password,role:accRole,assigned_center:accRole==="master"?"ALL":center,active:true,account_id:S.editAccountId||null};
+    const res=await gsPost({action:"saveAccount",data});
+    if(res&&res.ok){toast(S.editAccountId?"수정 완료":"계정 추가 완료");S.editAccountId=null;await loadAccounts();render();}else toast((res&&res.msg)||"저장 실패","err");
+  }finally{
+    actionUnlock("saveAccount");
+    unlockButton(btn);
+  }
+}
+
 function editAccount(id){S.editAccountId=id;funcAccounts();} function resetAccountForm(){S.editAccountId=null;funcAccounts();} async function toggleAccount(id){const res=await gsPost({action:"toggleAccount",accountId:id});if(res&&res.ok){await loadAccounts();render();}else toast("오류","err");} async function deleteAccount(id){if(!confirm("계정을 삭제하겠습니까?"))return;const res=await gsPost({action:"deleteAccount",accountId:id});if(res&&res.ok){await loadAccounts();render();}else toast("오류","err");} function onAccRoleChange(){const v=document.getElementById("accRole")?.value;const sel=document.getElementById("accCenter");if(sel)sel.disabled=v==="master";}
 let scanner=null;function openScanner(cb){document.getElementById("app").innerHTML=`<h2>바코드 스캔</h2><div id="reader"></div><div class="note">카메라가 안 열리면 HTTPS 접속인지 확인하세요. 권한 요청 시 [허용]을 누르세요.</div><button class="btn ghost" onclick="closeScanner()">스캔 닫기</button>`;scanner=new Html5Qrcode("reader");scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:260,height:260},formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.CODE_128]},t=>{if(navigator.vibrate)navigator.vibrate([60]);cb(t);},()=>{}).catch(e=>{document.getElementById("reader").innerHTML='<div class="empty">카메라를 열 수 없습니다.<br>HTTPS 접속 + 카메라 권한 필요<br><small>'+e+'</small></div>';});}
 async function closeScanner(){if(scanner){try{await scanner.stop();}catch(e){}scanner=null;}render();}
